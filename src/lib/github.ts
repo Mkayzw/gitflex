@@ -1,10 +1,87 @@
 // GitHub API utilities for GitFlex
 import { Octokit } from '@octokit/rest';
+import { throttling } from '@octokit/plugin-throttling';
 
-// Initialize Octokit with GitHub token if available
-const octokit = new Octokit({
+// Add throttling plugin to Octokit
+const ThrottledOctokit = Octokit.plugin(throttling);
+
+// Simple in-memory cache for API responses
+const apiCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+
+// Initialize Octokit with GitHub token if available and throttling configuration
+const octokit = new ThrottledOctokit({
   auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN,
+  throttle: {
+    onRateLimit: (retryAfter: number, options: any) => {
+      console.warn(`Request quota exhausted for request ${options.method} ${options.url}`);
+      // Retry twice after hitting a rate limit
+      if (options.request.retryCount <= 2) {
+        console.log(`Retrying after ${retryAfter} seconds!`);
+        return true;
+      }
+    },
+    onSecondaryRateLimit: (retryAfter: number, options: any) => {
+      // Secondary rate limit (abuse detection) retry once
+      if (options.request.retryCount <= 1) {
+        return true;
+      }
+    },
+  },
 });
+
+// Helper function to get cached data or fetch new data
+const getCachedOrFetch = async <T>(cacheKey: string, fetchFn: () => Promise<T>): Promise<T> => {
+  const cached = apiCache.get(cacheKey);
+  const now = Date.now();
+  
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    console.log(`Using cached data for ${cacheKey}`);
+    return cached.data as T;
+  }
+  
+  const data = await fetchFn();
+  apiCache.set(cacheKey, { data, timestamp: now });
+  return data;
+};
+
+// Helper function to handle API errors, especially rate limiting
+const handleApiError = (error: any, context: string) => {
+  // Handle rate limit errors
+  if (error.status === 403 && error.message.includes('API rate limit exceeded')) {
+    const resetTime = error.response?.headers?.['x-ratelimit-reset'];
+    let resetMessage = '';
+    
+    if (resetTime) {
+      const resetDate = new Date(parseInt(resetTime) * 1000);
+      resetMessage = ` Rate limit will reset at ${resetDate.toLocaleTimeString()}.`;
+    }
+    
+    console.error(`GitHub API rate limit exceeded during ${context}.${resetMessage} Please ensure you have set a valid GitHub token in your .env.local file.`);
+    throw new Error(
+      `GitHub API rate limit exceeded.${resetMessage} Please make sure you have added a valid GitHub personal access token in your .env.local file.\n` +
+      'See the README.md for instructions on how to create and configure your token.'
+    );
+  }
+  
+  // Handle authentication errors
+  if (error.status === 401) {
+    console.error(`GitHub API authentication failed during ${context}. Please check your token.`);
+    throw new Error(
+      'GitHub API authentication failed. Your token may be invalid or expired.\n' +
+      'Please make sure you have added a valid GitHub personal access token in your .env.local file.'
+    );
+  }
+  
+  // Handle not found errors
+  if (error.status === 404) {
+    console.error(`Resource not found during ${context}: ${error.message}`);
+    throw new Error(`GitHub resource not found. Please check the provided information and try again.`);
+  }
+  
+  console.error(`Error during ${context}:`, error);
+  throw error;
+};
 
 // Types for GitHub data
 export interface GitHubUser {
@@ -57,58 +134,62 @@ export interface GitHubCommit {
 // Fetch GitHub user profile
 export async function fetchGitHubUser(username: string): Promise<GitHubUser> {
   try {
-    const { data } = await octokit.users.getByUsername({
-      username,
+    return await getCachedOrFetch<GitHubUser>(`user:${username}`, async () => {
+      const { data } = await octokit.users.getByUsername({
+        username,
+      });
+      return data as GitHubUser;
     });
-    return data as GitHubUser;
   } catch (error) {
-    console.error('Error fetching GitHub user:', error);
-    throw error;
+    handleApiError(error, 'fetching GitHub user');
   }
 }
 
 // Fetch user repositories
 export async function fetchUserRepos(username: string): Promise<GitHubRepo[]> {
   try {
-    const { data } = await octokit.repos.listForUser({
-      username,
-      sort: 'updated',
-      per_page: 100,
+    return await getCachedOrFetch<GitHubRepo[]>(`repos:${username}`, async () => {
+      const { data } = await octokit.repos.listForUser({
+        username,
+        sort: 'updated',
+        per_page: 100,
+      });
+      return data as GitHubRepo[];
     });
-    return data as GitHubRepo[];
   } catch (error) {
-    console.error('Error fetching user repositories:', error);
-    throw error;
+    handleApiError(error, 'fetching user repositories');
   }
 }
 
 // Fetch user commits for a specific repository
 export async function fetchRepoCommits(owner: string, repo: string): Promise<GitHubCommit[]> {
   try {
-    const { data } = await octokit.repos.listCommits({
-      owner,
-      repo,
-      per_page: 100,
+    return await getCachedOrFetch<GitHubCommit[]>(`commits:${owner}/${repo}`, async () => {
+      const { data } = await octokit.repos.listCommits({
+        owner,
+        repo,
+        per_page: 100,
+      });
+      return data as GitHubCommit[];
     });
-    return data as GitHubCommit[];
   } catch (error) {
-    console.error(`Error fetching commits for ${owner}/${repo}:`, error);
-    throw error;
+    handleApiError(error, `fetching commits for ${owner}/${repo}`);
   }
 }
 
 // Fetch commit details including stats (additions/deletions)
 export async function fetchCommitDetails(owner: string, repo: string, sha: string): Promise<GitHubCommit> {
   try {
-    const { data } = await octokit.repos.getCommit({
-      owner,
-      repo,
-      ref: sha,
+    return await getCachedOrFetch<GitHubCommit>(`commit:${owner}/${repo}/${sha}`, async () => {
+      const { data } = await octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: sha,
+      });
+      return data as GitHubCommit;
     });
-    return data as GitHubCommit;
   } catch (error) {
-    console.error(`Error fetching commit details for ${sha}:`, error);
-    throw error;
+    handleApiError(error, `fetching commit details for ${sha}`);
   }
 }
 
@@ -239,7 +320,6 @@ export async function analyzeCommitFarming(username: string): Promise<{
       },
     };
   } catch (error) {
-    console.error('Error analyzing commit farming:', error);
-    throw error;
+    handleApiError(error, 'analyzing commit farming');
   }
 }
