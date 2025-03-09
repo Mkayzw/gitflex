@@ -1,12 +1,5 @@
 # GitFlex
 
-<p align="center">
-  <img src="public/next.svg" alt="GitFlex Logo" width="100" height="100">
-</p>
-
-<p align="center">
-  Analyze GitHub profiles and spot commit farmers 🚜
-</p>
 
 ## 📋 Overview
 
