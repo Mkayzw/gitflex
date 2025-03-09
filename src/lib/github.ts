@@ -254,6 +254,7 @@ export async function analyzeCommitFarming(username: string): Promise<{
       }
     }
     
+    // Inside analyzeCommitFarming function, update the metrics calculation:
     // Calculate metrics
     
     // 1. Commit Frequency - Check for suspicious patterns like many commits in short time
@@ -277,9 +278,25 @@ export async function analyzeCommitFarming(username: string): Promise<{
       commitFrequency = Math.max(0, 1 - (suspiciousPatterns / commitDates.length));
     }
     
+    // 2. Code Quality - Based on PR reviews and issue engagement
+    let codeQuality = 0.5; // Default neutral score
+    const pullRequests = await fetchUserPullRequests(username);
+    const issues = await fetchUserIssues(username);
+    
+    if (pullRequests.length > 0) {
+      // Calculate PR quality score based on reviews and discussion
+      const prQualityScore = pullRequests.reduce((score, pr) => {
+        const hasReviews = pr.review_comments > 0;
+        const hasDiscussion = pr.comments > 0;
+        const isSmallChange = (pr.additions || 0) + (pr.deletions || 0) < 300;
+        return score + (hasReviews ? 0.4 : 0) + (hasDiscussion ? 0.3 : 0) + (isSmallChange ? 0.3 : 0);
+      }, 0) / pullRequests.length;
+      
+      codeQuality = (prQualityScore * 0.7 + (issues.length > 0 ? 0.3 : 0));
+    }
+    
     // 2. Code Quality - Based on ratio of additions to deletions
     // Healthy development usually has a mix of additions and deletions
-    let codeQuality = 0.5; // Default neutral score
     if (totalAdditions + totalDeletions > 0) {
       const ratio = totalDeletions / (totalAdditions + totalDeletions);
       // Very low deletion ratio might indicate just adding trivial code
@@ -321,5 +338,37 @@ export async function analyzeCommitFarming(username: string): Promise<{
     };
   } catch (error) {
     handleApiError(error, 'analyzing commit farming');
+  }
+}
+
+// Fetch user's pull requests
+export async function fetchUserPullRequests(username: string): Promise<any[]> {
+  try {
+    return await getCachedOrFetch<any[]>(`prs:${username}`, async () => {
+      const { data } = await octokit.search.issuesAndPullRequests({
+        q: `author:${username} type:pr`,
+        per_page: 100,
+        sort: 'updated',
+      });
+      return data.items;
+    });
+  } catch (error) {
+    handleApiError(error, 'fetching user pull requests');
+  }
+}
+
+// Fetch user's issues
+export async function fetchUserIssues(username: string): Promise<any[]> {
+  try {
+    return await getCachedOrFetch<any[]>(`issues:${username}`, async () => {
+      const { data } = await octokit.search.issuesAndPullRequests({
+        q: `author:${username} type:issue`,
+        per_page: 100,
+        sort: 'updated',
+      });
+      return data.items;
+    });
+  } catch (error) {
+    handleApiError(error, 'fetching user issues');
   }
 }
