@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GitFlex
 
-## Getting Started
+<p align="center">
+  <img src="public/next.svg" alt="GitFlex Logo" width="100" height="100">
+</p>
 
-First, run the development server:
+<p align="center">
+  Analyze GitHub profiles and spot commit farmers 🚜
+</p>
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 📋 Overview
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+GitFlex is a web application that analyzes GitHub profiles to distinguish between real developers and commit farmers. It provides a comprehensive scoring system based on various metrics to evaluate a developer's contribution patterns and quality.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ✨ Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **GitHub Profile Analysis**: Enter any GitHub username to analyze their profile
+- **Developer Rating**: Get an overall score and rating for the developer
+- **Metrics Breakdown**: Visualize the analysis with a detailed metrics chart
+- **Detailed Analysis**: View in-depth analysis of commit patterns and contribution quality
 
-## Learn More
+## 🔍 Metrics Analyzed
 
-To learn more about Next.js, take a look at the following resources:
+- **Commit Frequency**: Detects suspicious commit patterns
+- **Code Quality**: Evaluates the quality of contributions
+- **Project Diversity**: Assesses variety in projects
+- **Contribution Impact**: Measures the impact of contributions
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🚀 Getting Started
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Prerequisites
 
-## Deploy on Vercel
+- Node.js (v18 or higher)
+- npm or yarn
+- GitHub API token (for higher rate limits)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Installation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Clone the repository
+   ```bash
+   git clone https://github.com/yourusername/gitflex.git
+   cd gitflex
+   ```
+
+2. Install dependencies
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Create a `.env.local` file in the root directory with your GitHub token:
+   ```
+   NEXT_PUBLIC_GITHUB_TOKEN=your_github_token
+   ```
+
+4. Start the development server
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) with your browser to see the application
+
+## 🔧 Tech Stack
+
+- **Frontend**: Next.js, React, TailwindCSS
+- **Data Visualization**: Chart.js, React-ChartJS-2
+- **API Integration**: GitHub API (via Octokit)
+- **Authentication**: Firebase Authentication (optional)
+- **Database**: Firebase Firestore (optional)
+
+## 📊 How It Works
+
+GitFlex analyzes GitHub profiles using the following process:
+
+1. **Data Collection**: Fetches user profile and repository data from GitHub API
+2. **Commit Analysis**: Analyzes commit patterns, frequency, and content
+3. **Metrics Calculation**: Computes various metrics based on the collected data
+4. **Score Generation**: Generates an overall score and rating
+
+## 📝 Rating System
+
+- **80-100**: Real Developer 🏆
+- **60-79**: Solid Contributor 👍
+- **40-59**: Average Coder 👨‍💻
+- **20-39**: Potential Farmer 🌱
+- **0-19**: Commit Farmer 🚜
+
+## 🔐 Privacy
+
+GitFlex only analyzes publicly available GitHub data. No personal information is stored or shared.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+Built with ❤️ using Next.js and GitHub API
